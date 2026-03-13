@@ -39,4 +39,4 @@ def move_file(source: Path, destination: Path) -> None:
         source.rename(destination)
     except OSError:
         shutil.move(str(source), str(destination))
-    logger.info("Moved %s → %s", source, destination)
+    logger.debug("Moved %s → %s", source, destination)

@@ -74,7 +74,7 @@ def _process_file(
             if phash:
                 for stored_path, stored_phash in db.get_all_perceptual_hashes():
                     if hamming_distance(phash, stored_phash) <= PERCEPTUAL_THRESHOLD:
-                        logger.info(
+                        logger.debug(
                             "Perceptual duplicate: %s ≈ %s", filepath, stored_path
                         )
                         if not dry_run:
