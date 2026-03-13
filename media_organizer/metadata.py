@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -15,6 +16,24 @@ from pathlib import Path
 from typing import Optional
 
 from .utils import IMAGE_EXTENSIONS, RAW_EXTENSIONS, logger
+
+
+def _exiftool_path() -> str:
+    """Return the path to the bundled ExifTool executable.
+
+    Resolution order:
+    1. PyInstaller frozen bundle (``sys._MEIPASS``)
+    2. ``vendor/`` directory relative to the project root
+    3. Fall back to bare ``exiftool`` on the system PATH
+    """
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent
+    exe = base / "vendor" / "exiftool.exe"
+    if exe.exists():
+        return str(exe)
+    return "exiftool"
 
 _EXIF_DATE_TAGS = (
     "EXIF:DateTimeOriginal",
@@ -77,7 +96,7 @@ def write_metadata(
     If *location* is given, forward-geocodes the city name to GPS
     coordinates and writes GPSLatitude / GPSLongitude.
     """
-    args: list[str] = ["exiftool", "-overwrite_original"]
+    args: list[str] = [_exiftool_path(), "-overwrite_original"]
 
     if timestamp is not None:
         dt_str = timestamp.strftime("%Y:%m:%d %H:%M:%S")
@@ -202,7 +221,7 @@ def _sanitize_for_filename(name: str) -> str:
 
 def _extract_with_exiftool(filepath: Path) -> dict:
     proc = subprocess.run(
-        ["exiftool", "-json", "-dateFormat", "%Y:%m:%d %H:%M:%S", str(filepath)],
+        [_exiftool_path(), "-json", "-dateFormat", "%Y:%m:%d %H:%M:%S", str(filepath)],
         capture_output=True,
         text=True,
         timeout=30,

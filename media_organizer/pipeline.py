@@ -106,6 +106,7 @@ def _process_file(
                 timestamp=timestamp if (year is not None or month is not None) else None,
                 location=location,
             )
+            content_hash = file_hash(filepath)
 
         # --- build filename: DDd_HHh_MMmin_SSs_City.ext ---
         new_name = f"{timestamp:%d_%Hh%Mm%Ss}_{city}{filepath.suffix.lower()}"

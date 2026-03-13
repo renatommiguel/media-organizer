@@ -2,21 +2,19 @@
 
 **Turn your chaotic camera dumps into a beautifully organized, deduplicated, GPS-tagged archive — in seconds.**
 
-Media Organizer is a blazing-fast CLI tool that scans unstructured folders of photos and videos, extracts rich metadata, eliminates duplicates, and files everything into a clean date-based archive. Files are automatically renamed with their capture time and location, so you always know *when* and *where* a photo was taken just by looking at the filename.
+Media Organizer is a blazing-fast CLI tool that scans unstructured folders of photos, videos, and audio files, extracts rich metadata, eliminates duplicates, and files everything into a clean date-based archive. Files are automatically renamed with their capture time and location, so you always know *when* and *where* a media file was captured just by looking at the filename.
 
 ```
-Before:                          After:
-DCIM/                            archive/
-  IMG_4021.jpg                     2024/
-  IMG_4021 (1).jpg                   03/
-  DSC00382.ARW                         15/
-  random/                                14_30_00_Paris.jpg
-    MVI_0042.mp4                         14_30_00_Paris_1.jpg   (collision resolved)
-    IMG_4021.jpg   (duplicate)           17_22_10_Lyon.mp4
-  old_trip/                          08/
-    photo.jpg                          22/
-                                         09_15_33_Unknown_location.arw
-                                         11_00_00_Barcelona.jpg
+Before:                              After:
+DCIM/                                archive/
+  IMG_4021.jpg                         2024/
+  IMG_4021 (1).jpg                       03/
+  DSC00382.ARW                             15d_14h30m00s_Paris.jpg
+  random/                                  15d_14h30m00s_Paris_1.jpg  (collision resolved)
+    MVI_0042.mp4                           15d_17h22m10s_Lyon.mp4
+    IMG_4021.jpg   (duplicate — deleted)   08/
+  old_trip/                                  22d_09h15m33s_Unknown_location.arw
+    photo.jpg                                22d_11h00m00s_Barcelona.jpg
 ```
 
 ---
@@ -36,25 +34,25 @@ Every file is renamed to `DDd_HHh_MMmin_SSs_City.ext` using EXIF timestamps and 
 Know where your photos were taken but the GPS is missing? Override it from the CLI:
 
 ```bash
-uv run media-organizer ~/Photos/Trip ~/Archive --location "Tokyo"
+media-organizer ~/Photos/Trip ~/Archive --location "Tokyo"
 ```
 
 Need to fix the year or month on a batch of files? These flags update both the filename **and** the EXIF metadata inside the file, so the correction is permanent:
 
 ```bash
-uv run media-organizer ~/Photos/Old ~/Archive --year 2019 --month 8
+media-organizer ~/Photos/Old ~/Archive --year 2019 --month 8
 ```
 
 All three flags can be combined and work together with every other option.
 
 ### Duplicate detection
 
-- **Exact duplicates** — BLAKE3 content hashing (one of the fastest hash algorithms available) catches byte-identical files instantly, even across separate ingest sessions.
+- **Exact duplicates** — BLAKE3 content hashing (one of the fastest hash algorithms available) catches byte-identical files instantly, even across separate ingest sessions. Duplicates are deleted from the source.
 - **Perceptual duplicates** (optional) — pHash-based visual comparison finds near-identical images with a configurable hamming distance threshold.
 
 ### Date-based archive structure
 
-Files are organized into `archive/YYYY/MM/DD/` directories using the best available timestamp:
+Files are organized into `archive/YYYY/MM/` directories using the best available timestamp:
 
 `DateTimeOriginal > CreateDate > MediaCreateDate > file modification time`
 
@@ -75,16 +73,17 @@ Files are organized into `archive/YYYY/MM/DD/` directories using the best availa
 
 | Category | Formats |
 |---|---|
-| Images | JPEG, PNG, HEIC |
+| Images | JPEG, PNG, HEIC, GIF, WEBP, BMP, PDF, TIFF |
 | RAW | CR2, CR3, NEF, ARW, DNG, RAF, RW2, ORF |
-| Video | MP4, MOV, AVI, MKV, M4V |
+| Video | MP4, MPG, MOV, AVI, MKV, M4V, 3GP, WMV |
+| Audio | MP3, WAV, FLAC, AAC, OGG, WMA, M4A |
 
 ---
 
 ## Requirements
 
 - **Python 3.11+**
-- **[ExifTool](https://exiftool.org/)** (recommended) — provides the richest metadata extraction including GPS. Without it, the tool falls back to Pillow EXIF reading and file modification time.
+- **ExifTool** is bundled in `vendor/` — no separate install needed.
 
 ## Installation
 
@@ -95,8 +94,18 @@ uv sync
 Or with pip:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
+
+### Portable executable
+
+A self-contained single-file `.exe` (no Python required) can be built with:
+
+```bash
+python build_exe.py
+```
+
+The output lands in `dist/media-organizer.exe`.
 
 ---
 
@@ -105,10 +114,10 @@ pip install -r requirements.txt
 ### Ingest media
 
 ```bash
-uv run media-organizer <source> <archive>
+media-organizer <source> <archive>
 ```
 
-Scans `<source>` recursively for media files, deduplicates, renames with time + location, and moves them into `<archive>/YYYY/MM/DD/`.
+Scans `<source>` recursively for media files, deduplicates, renames with time + location, and moves them into `<archive>/YYYY/MM/`.
 
 ### Options
 
@@ -127,31 +136,31 @@ Scans `<source>` recursively for media files, deduplicates, renames with time + 
 
 ```bash
 # Basic ingest
-uv run media-organizer ~/Photos/Camera ~/Photos/Archive
+media-organizer ~/Photos/Camera ~/Photos/Archive
 
 # See what would happen first
-uv run media-organizer ~/Photos/Camera ~/Photos/Archive --dry-run
+media-organizer ~/Photos/Camera ~/Photos/Archive --dry-run
 
 # Max speed with 8 workers
-uv run media-organizer ~/Photos/Camera ~/Photos/Archive --workers 8
+media-organizer ~/Photos/Camera ~/Photos/Archive --workers 8
 
 # Pick up where you left off after a crash
-uv run media-organizer ~/Photos/Camera ~/Photos/Archive --resume
+media-organizer ~/Photos/Camera ~/Photos/Archive --resume
 
 # Catch near-identical photos too
-uv run media-organizer ~/Photos/Camera ~/Photos/Archive --perceptual
+media-organizer ~/Photos/Camera ~/Photos/Archive --perceptual
 
 # Check your archive for corruption
-uv run media-organizer ~/Photos/Archive --verify
+media-organizer ~/Photos/Archive --verify
 
 # Override location when GPS is missing
-uv run media-organizer ~/Photos/Rome ~/Photos/Archive --location "Rome"
+media-organizer ~/Photos/Rome ~/Photos/Archive --location "Rome"
 
 # Fix year and month on old scanned photos
-uv run media-organizer ~/Scans ~/Archive --year 2018 --month 3
+media-organizer ~/Scans ~/Archive --year 2018 --month 3
 
 # Combine everything
-uv run media-organizer ~/Trip ~/Archive --location "Barcelona" --year 2023 --month 6 --perceptual
+media-organizer ~/Trip ~/Archive --location "Barcelona" --year 2023 --month 6 --perceptual
 ```
 
 ### Live progress
@@ -173,11 +182,11 @@ scan source/        Recursively find all media files (generator-based, constant 
        |
    db.exists()      Check SQLite index for exact duplicates
        |
-extract_metadata()  ExifTool -> Pillow -> file mtime fallback chain
+extract_metadata()  ExifTool (bundled) -> Pillow -> file mtime fallback chain
        |
   apply overrides   --year, --month, --location replace extracted values
        |
- write_metadata()   Write corrected EXIF data back to the file (via ExifTool)
+ write_metadata()   Write corrected EXIF back to the file via bundled ExifTool
        |
 reverse_geocode()   Nominatim (online) -> reverse_geocoder (offline) -> Unknown_location
        |
@@ -196,10 +205,15 @@ media_organizer/
   pipeline.py     Ingest orchestration and verification
   scanner.py      Generator-based filesystem scanning
   hashing.py      BLAKE3 content hashing and perceptual hashing
-  metadata.py     ExifTool / Pillow / mtime extraction + GPS reverse geocoding
+  metadata.py     ExifTool / Pillow / mtime extraction + GPS geocoding + metadata writing
   organizer.py    Date-based archive path computation
   database.py     Thread-safe SQLite access layer
   utils.py        Shared constants and logger
+vendor/
+  exiftool.exe    Bundled ExifTool v13.52 (standalone, no install needed)
+  exiftool_files/ ExifTool runtime dependencies
+build_exe.py      Build a portable single-file .exe via PyInstaller
+entry.py          PyInstaller entry point
 ```
 
 ## Running tests

@@ -21,5 +21,8 @@ dev = ["pytest>=7.0"]
 [project.scripts]
 media-organizer = "media_organizer.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["media_organizer*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

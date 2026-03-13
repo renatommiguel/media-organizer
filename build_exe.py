@@ -29,11 +29,13 @@ def main():
 
         print("Building executable...")
         dist = ROOT / "dist"
+        vendor_src = ROOT / "vendor"
         subprocess.run([
             python, "-m", "PyInstaller",
             "--onefile",
             "--name", "media-organizer",
             "--clean",
+            "--add-data", f"{vendor_src};vendor",
             "--distpath", str(dist),
             "--workpath", str(Path(tmp) / "build"),
             "--specpath", str(tmp),
