@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from media_ingest.scanner import scan
+from media_organizer.scanner import scan
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from media_ingest.metadata import extract_metadata
+from media_organizer.metadata import extract_metadata
 
 
 def test_fallback_to_mtime(tmp_path):

@@ -3,7 +3,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from media_ingest.organizer import target_path, move_file
+from media_organizer.organizer import target_path, move_file
 
 
 def test_destination_structure(tmp_path):

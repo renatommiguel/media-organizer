@@ -91,7 +91,7 @@ archive/
 ## Project structure
 
 ```
-media_ingest/
+media_organizer/
   cli.py          # Command-line interface
   pipeline.py     # Ingest orchestration and verification
   scanner.py      # Generator-based filesystem scanning

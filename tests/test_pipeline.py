@@ -3,8 +3,8 @@
 import pytest
 from pathlib import Path
 
-from media_ingest.pipeline import run_pipeline, run_verify
-from media_ingest.database import ArchiveDB
+from media_organizer.pipeline import run_pipeline, run_verify
+from media_organizer.database import ArchiveDB
 
 
 @pytest.fixture

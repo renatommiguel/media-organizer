@@ -2,7 +2,7 @@
 
 import logging
 
-logger = logging.getLogger("media_ingest")
+logger = logging.getLogger("media_organizer")
 
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".heic"})
 RAW_EXTENSIONS = frozenset({".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf"})

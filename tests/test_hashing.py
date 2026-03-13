@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from media_ingest.hashing import file_hash, hamming_distance
+from media_organizer.hashing import file_hash, hamming_distance
 
 
 def test_deterministic_hash(tmp_path):
