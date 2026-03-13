@@ -1,0 +1,2 @@
+[console_scripts]
+media-organizer = media_ingest.cli:main
