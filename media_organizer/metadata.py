@@ -65,6 +65,55 @@ def extract_metadata(filepath: Path) -> dict:
     return result
 
 
+def write_metadata(
+    filepath: Path,
+    *,
+    timestamp: Optional[datetime] = None,
+    location: Optional[str] = None,
+) -> None:
+    """Write metadata overrides back into the file using ExifTool.
+
+    If *timestamp* is given, updates DateTimeOriginal and CreateDate.
+    If *location* is given, forward-geocodes the city name to GPS
+    coordinates and writes GPSLatitude / GPSLongitude.
+    """
+    args: list[str] = ["exiftool", "-overwrite_original"]
+
+    if timestamp is not None:
+        dt_str = timestamp.strftime("%Y:%m:%d %H:%M:%S")
+        args += [f"-DateTimeOriginal={dt_str}", f"-CreateDate={dt_str}"]
+
+    if location is not None:
+        coords = _forward_geocode_nominatim(location)
+        if coords:
+            lat, lon = coords
+            lat_ref = "N" if lat >= 0 else "S"
+            lon_ref = "E" if lon >= 0 else "W"
+            args += [
+                f"-GPSLatitude={abs(lat)}",
+                f"-GPSLatitudeRef={lat_ref}",
+                f"-GPSLongitude={abs(lon)}",
+                f"-GPSLongitudeRef={lon_ref}",
+            ]
+        else:
+            logger.warning(
+                "Could not forward-geocode '%s' — GPS metadata not written", location
+            )
+
+    if len(args) <= 2:
+        return
+
+    args.append(str(filepath))
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=30)
+        if proc.returncode != 0:
+            logger.warning("ExifTool write failed for %s: %s", filepath, proc.stderr)
+    except FileNotFoundError:
+        logger.warning("ExifTool not found — metadata not written for %s", filepath)
+    except Exception as exc:
+        logger.warning("Failed to write metadata for %s: %s", filepath, exc)
+
+
 def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> str:
     """Resolve GPS coordinates to a city name.
 
@@ -119,6 +168,23 @@ def _geocode_offline(lat: float, lon: float) -> Optional[str]:
             return result[0].get("name")
     except Exception:
         logger.debug("Offline geocoder failed for (%s, %s)", lat, lon)
+    return None
+
+
+def _forward_geocode_nominatim(city: str) -> Optional[tuple[float, float]]:
+    """Forward geocode a city name to (lat, lon) via Nominatim."""
+    url = (
+        f"https://nominatim.openstreetmap.org/search"
+        f"?q={urllib.request.quote(city)}&format=json&limit=1"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "media-organizer/0.1"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        if data:
+            return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception:
+        logger.debug("Nominatim forward geocode failed for '%s'", city)
     return None
 
 

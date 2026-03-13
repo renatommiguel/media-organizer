@@ -25,11 +25,27 @@ DCIM/                            archive/
 
 ### Smart file naming
 
-Every file is renamed to `HH_MM_SS_City.ext` using EXIF timestamps and GPS coordinates. The city is resolved automatically via a two-tier geocoding system:
+Every file is renamed to `DDd_HHh_MMmin_SSs_City.ext` using EXIF timestamps and GPS coordinates. The city is resolved automatically via a two-tier geocoding system:
 
 1. **Nominatim** (OpenStreetMap) — online, high accuracy
 2. **reverse_geocoder** — offline fallback, works without internet
 3. Falls back to `Unknown_location` when no GPS data is available
+
+### Manual metadata overrides
+
+Know where your photos were taken but the GPS is missing? Override it from the CLI:
+
+```bash
+uv run media-organizer ~/Photos/Trip ~/Archive --location "Tokyo"
+```
+
+Need to fix the year or month on a batch of files? These flags update both the filename **and** the EXIF metadata inside the file, so the correction is permanent:
+
+```bash
+uv run media-organizer ~/Photos/Old ~/Archive --year 2019 --month 8
+```
+
+All three flags can be combined and work together with every other option.
 
 ### Duplicate detection
 
@@ -103,6 +119,9 @@ Scans `<source>` recursively for media files, deduplicates, renames with time + 
 | `--resume` | Skip files already processed in a previous run |
 | `--perceptual` | Enable perceptual (visual) duplicate detection |
 | `--verify` | Verify archive integrity instead of ingesting |
+| `--location CITY` | Override location for all files (also writes GPS to EXIF) |
+| `--year YYYY` | Override year in timestamps (also updates EXIF metadata) |
+| `--month MM` | Override month (1-12) in timestamps (also updates EXIF metadata) |
 
 ### Examples
 
@@ -124,6 +143,15 @@ uv run media-organizer ~/Photos/Camera ~/Photos/Archive --perceptual
 
 # Check your archive for corruption
 uv run media-organizer ~/Photos/Archive --verify
+
+# Override location when GPS is missing
+uv run media-organizer ~/Photos/Rome ~/Photos/Archive --location "Rome"
+
+# Fix year and month on old scanned photos
+uv run media-organizer ~/Scans ~/Archive --year 2018 --month 3
+
+# Combine everything
+uv run media-organizer ~/Trip ~/Archive --location "Barcelona" --year 2023 --month 6 --perceptual
 ```
 
 ### Live progress
@@ -147,9 +175,13 @@ scan source/        Recursively find all media files (generator-based, constant 
        |
 extract_metadata()  ExifTool -> Pillow -> file mtime fallback chain
        |
+  apply overrides   --year, --month, --location replace extracted values
+       |
+ write_metadata()   Write corrected EXIF data back to the file (via ExifTool)
+       |
 reverse_geocode()   Nominatim (online) -> reverse_geocoder (offline) -> Unknown_location
        |
-  target_path()     Build archive/YYYY/MM/DD/HH_MM_SS_City.ext with collision handling
+  target_path()     Build archive/YYYY/MM/DDd_HHh_MMmin_SSs_City.ext with collision handling
        |
    move_file()      Move to archive, record in database
 ```

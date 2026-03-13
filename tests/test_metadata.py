@@ -2,9 +2,14 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from media_organizer.metadata import extract_metadata, reverse_geocode
+from media_organizer.metadata import (
+    extract_metadata,
+    reverse_geocode,
+    write_metadata,
+    _forward_geocode_nominatim,
+)
 
 
 def test_fallback_to_mtime(tmp_path):
@@ -75,3 +80,112 @@ def test_reverse_geocode_sanitizes_special_chars():
         assert "/" not in result
         assert "(" not in result
         assert ")" not in result
+
+
+# ------------------------------------------------------------------
+# forward geocoding tests
+# ------------------------------------------------------------------
+
+
+def test_forward_geocode_success():
+    fake_response = b'[{"lat": "48.8566", "lon": "2.3522"}]'
+    with patch("media_organizer.metadata.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.return_value.__enter__ = lambda s: s
+        mock_urlopen.return_value.__exit__ = lambda *a: None
+        mock_urlopen.return_value.read.return_value = fake_response
+        result = _forward_geocode_nominatim("Paris")
+        assert result is not None
+        assert abs(result[0] - 48.8566) < 0.001
+        assert abs(result[1] - 2.3522) < 0.001
+
+
+def test_forward_geocode_no_results():
+    fake_response = b"[]"
+    with patch("media_organizer.metadata.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.return_value.__enter__ = lambda s: s
+        mock_urlopen.return_value.__exit__ = lambda *a: None
+        mock_urlopen.return_value.read.return_value = fake_response
+        assert _forward_geocode_nominatim("NonExistentPlace12345") is None
+
+
+def test_forward_geocode_network_error():
+    with patch(
+        "media_organizer.metadata.urllib.request.urlopen",
+        side_effect=Exception("timeout"),
+    ):
+        assert _forward_geocode_nominatim("Paris") is None
+
+
+# ------------------------------------------------------------------
+# write_metadata tests
+# ------------------------------------------------------------------
+
+
+def test_write_metadata_timestamp(tmp_path):
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0data")
+    ts = datetime(2024, 6, 15, 10, 30, 0)
+
+    with patch("media_organizer.metadata.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        write_metadata(f, timestamp=ts)
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert "-DateTimeOriginal=2024:06:15 10:30:00" in call_args
+        assert "-CreateDate=2024:06:15 10:30:00" in call_args
+        assert "-overwrite_original" in call_args
+
+
+def test_write_metadata_location_with_gps(tmp_path):
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0data")
+
+    with patch(
+        "media_organizer.metadata._forward_geocode_nominatim",
+        return_value=(48.8566, 2.3522),
+    ):
+        with patch("media_organizer.metadata.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            write_metadata(f, location="Paris")
+            call_args = mock_run.call_args[0][0]
+            assert f"-GPSLatitude={48.8566}" in call_args
+            assert "-GPSLatitudeRef=N" in call_args
+            assert f"-GPSLongitude={2.3522}" in call_args
+            assert "-GPSLongitudeRef=E" in call_args
+
+
+def test_write_metadata_location_geocode_fails(tmp_path):
+    """When forward geocoding fails, GPS is not written but no error."""
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0data")
+
+    with patch(
+        "media_organizer.metadata._forward_geocode_nominatim", return_value=None
+    ):
+        with patch("media_organizer.metadata.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            write_metadata(f, location="UnknownPlace")
+            mock_run.assert_not_called()
+
+
+def test_write_metadata_no_overrides(tmp_path):
+    """No-op when neither timestamp nor location is provided."""
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0data")
+
+    with patch("media_organizer.metadata.subprocess.run") as mock_run:
+        write_metadata(f)
+        mock_run.assert_not_called()
+
+
+def test_write_metadata_exiftool_missing(tmp_path):
+    """Gracefully handles ExifTool not being installed."""
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0data")
+    ts = datetime(2024, 1, 1, 0, 0, 0)
+
+    with patch(
+        "media_organizer.metadata.subprocess.run",
+        side_effect=FileNotFoundError("exiftool not found"),
+    ):
+        write_metadata(f, timestamp=ts)

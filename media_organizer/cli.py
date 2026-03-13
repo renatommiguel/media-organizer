@@ -45,6 +45,29 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Verify archive integrity instead of ingesting",
     )
+    parser.add_argument(
+        "--location",
+        type=str,
+        default=None,
+        metavar="CITY",
+        help="Override location for all files (e.g. 'Paris'). "
+        "Also writes GPS coordinates back to file metadata.",
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=None,
+        metavar="YYYY",
+        help="Override year in file timestamps (also updates EXIF metadata)",
+    )
+    parser.add_argument(
+        "--month",
+        type=int,
+        default=None,
+        choices=range(1, 13),
+        metavar="MM",
+        help="Override month in file timestamps (1-12, also updates EXIF metadata)",
+    )
     return parser
 
 
@@ -73,5 +96,8 @@ def main(argv: list[str] | None = None) -> None:
             dry_run=args.dry_run,
             resume=args.resume,
             perceptual=args.perceptual,
+            location=args.location,
+            year=args.year,
+            month=args.month,
         )
         sys.exit(1 if stats.errors else 0)

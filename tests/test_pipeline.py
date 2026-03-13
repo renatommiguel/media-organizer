@@ -74,3 +74,23 @@ def test_empty_source(ingest_env):
     stats = run_pipeline(source, archive, workers=1)
     assert stats.processed == 0
     assert stats.errors == 0
+
+
+def test_ingest_with_location_override(ingest_env):
+    source, archive = ingest_env
+    _create_fake_image(source / "photo.jpg")
+
+    stats = run_pipeline(source, archive, workers=1, location="Tokyo")
+    assert stats.processed == 1
+    archived = list(archive.rglob("*.jpg"))
+    assert len(archived) == 1
+    assert "Tokyo" in archived[0].name
+
+
+def test_ingest_with_year_month_override(ingest_env):
+    source, archive = ingest_env
+    _create_fake_image(source / "photo.jpg")
+
+    stats = run_pipeline(source, archive, workers=1, year=2020, month=7)
+    assert stats.processed == 1
+    assert (archive / "2020" / "07").exists()
