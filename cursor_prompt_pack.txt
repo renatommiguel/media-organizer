@@ -1,0 +1,165 @@
+CURSOR PROMPT PACK Media Ingest Tool
+
+This document contains optimized prompts designed for use with Cursor or
+other AI-assisted code editors. Each prompt should be used sequentially
+to generate the modules for the Media Ingest Tool.
+
+The prompts assume the project already contains: -
+media_ingest_spec.txt - media_ingest_sdd.txt - implementation_plan.txt
+
+Use one prompt at a time.
+
+  --------------------------------------------------
+  PROMPT 1 — PROJECT STRUCTURE
+  --------------------------------------------------
+  PROMPT 2 — SCANNER MODULE
+
+  Implement scanner.py.
+
+  Requirements:
+
+  - must stream files using a generator - must not
+  load all files into memory - must recursively scan
+  directories - must filter supported media
+  extensions
+
+  Supported extensions:
+
+  Images: jpg jpeg png heic
+
+  RAW: cr2 cr3 nef arw dng raf rw2 orf
+
+  Videos: mp4 mov avi mkv m4v
+
+  Function signature:
+
+  scan(source: Path) -> Iterator[Path]
+
+  Return one path at a time.
+  --------------------------------------------------
+
+PROMPT 3 — HASHING MODULE
+
+Implement hashing.py.
+
+Requirements:
+
+-   use BLAKE3 hashing
+-   read files in chunks (1MB recommended)
+-   must support very large files
+-   return hexadecimal hash string
+
+Function:
+
+file_hash(path: Path) -> str
+
+Ensure the implementation is efficient for large video files.
+
+  --------------------------------------------------
+  PROMPT 4 — DATABASE MODULE
+  --------------------------------------------------
+  PROMPT 5 — METADATA ENGINE
+
+  Implement metadata.py.
+
+  Goal:
+
+  Extract capture timestamps.
+
+  Primary method:
+
+  Use ExifTool.
+
+  Fallback:
+
+  filesystem modification time.
+
+  Priority:
+
+  DateTimeOriginal CreateDate MediaCreateDate
+  FileModifyDate
+
+  Return value:
+
+  Python datetime object.
+  --------------------------------------------------
+
+PROMPT 6 — ORGANIZER MODULE
+
+Implement organizer.py.
+
+Function:
+
+target_path(dest: Path, date: datetime, name: str)
+
+Responsibilities:
+
+Create directory structure:
+
+archive/YYYY/MM/DD/
+
+Resolve filename conflicts.
+
+Example:
+
+photo.jpg photo_1.jpg photo_2.jpg
+
+  --------------------------------------------------
+  PROMPT 7 — INGEST PIPELINE
+  --------------------------------------------------
+  PROMPT 8 — CLI INTERFACE
+
+  Implement cli.py.
+
+  Command:
+
+  media-organizer ingest/ archive/
+
+  Arguments:
+
+  –dry-run –workers N
+
+  CLI should call pipeline.run_pipeline().
+  --------------------------------------------------
+
+PROMPT 9 — PROGRESS BAR
+
+Add progress reporting using tqdm.
+
+Display:
+
+files processed duplicates removed errors
+
+Progress bar must work with streaming pipeline.
+
+  --------------------------------------------------
+  PROMPT 10 — VERIFICATION COMMAND
+  --------------------------------------------------
+  PROMPT 11 — PERFORMANCE IMPROVEMENTS
+
+  Optimize the system.
+
+  Add:
+
+  hash caching batched database commits worker pool
+  tuning
+
+  Ensure memory usage stays constant regardless of
+  library size.
+  --------------------------------------------------
+
+PROMPT 12 — ADVANCED FEATURES (OPTIONAL)
+
+Implement:
+
+perceptual duplicate detection using imagehash
+
+Add database table:
+
+phashes( path TEXT, hash TEXT )
+
+Use hamming distance threshold <= 5.
+
+------------------------------------------------------------------------
+
+END OF CURSOR PROMPT PACK

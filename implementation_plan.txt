@@ -1,0 +1,246 @@
+MEDIA INGEST TOOL – IMPLEMENTATION PLAN
+
+Purpose This document defines an incremental implementation plan for
+building the Media Ingest Tool. It is designed to help code generation
+tools (such as Cursor) generate the project step‑by‑step instead of
+attempting to build the entire system at once.
+
+Each phase adds functionality while keeping the system runnable.
+
+------------------------------------------------------------------------
+
+PHASE 1 — PROJECT BOOTSTRAP
+
+Goal: Create a minimal CLI tool and project structure.
+
+Tasks:
+
+1.  Create project structure
+
+media_ingest/ init.py cli.py pipeline.py scanner.py hashing.py
+metadata.py organizer.py database.py
+
+2.  Add pyproject.toml or requirements.txt
+
+Dependencies: pillow tqdm blake3 imagehash
+
+3.  Implement CLI entrypoint
+
+Command format:
+
+media-ingest ingest/ archive/
+
+CLI options:
+
+–dry-run –workers N
+
+Result: CLI launches pipeline but does not yet process files.
+
+------------------------------------------------------------------------
+
+PHASE 2 — FILE SCANNER
+
+Goal: Stream files from the ingest directory.
+
+Requirements:
+
+-   must use generator
+-   must not load all files into memory
+
+Example behavior:
+
+scan(“ingest/”)
+
+yields:
+
+Path(“ingest/photo.jpg”) Path(“ingest/video.mp4”)
+
+Supported extensions:
+
+Images: jpg jpeg png heic
+
+RAW: cr2 cr3 nef arw dng raf rw2 orf
+
+Videos: mp4 mov avi mkv m4v
+
+Result: Scanner streams files safely for large datasets.
+
+------------------------------------------------------------------------
+
+PHASE 3 — HASHING ENGINE
+
+Goal: Detect exact duplicates.
+
+Algorithm: BLAKE3 hashing.
+
+Implementation:
+
+read file in 1MB chunks update hash incrementally
+
+Output:
+
+64‑character hex hash.
+
+Result: Every file can produce a deterministic content hash.
+
+------------------------------------------------------------------------
+
+PHASE 4 — DATABASE LAYER
+
+Goal: Persist file hashes across runs.
+
+Database: SQLite
+
+Table schema:
+
+files( hash TEXT PRIMARY KEY, path TEXT, size INTEGER )
+
+Required methods:
+
+exists(hash) insert(hash, path, size)
+
+Result: System can detect duplicates across multiple ingests.
+
+------------------------------------------------------------------------
+
+PHASE 5 — METADATA ENGINE
+
+Goal: Extract capture timestamps from media.
+
+Primary tool: ExifTool.
+
+Fallback: filesystem modification time.
+
+Priority:
+
+DateTimeOriginal CreateDate MediaCreateDate FileModifyDate
+
+Result: Every media file receives a normalized timestamp.
+
+------------------------------------------------------------------------
+
+PHASE 6 — ARCHIVE ORGANIZER
+
+Goal: Determine destination archive path.
+
+Structure:
+
+archive/ YYYY/ MM/ DD/
+
+Example:
+
+archive/2023/07/14/photo.jpg
+
+Responsibilities:
+
+create directories resolve filename collisions
+
+------------------------------------------------------------------------
+
+PHASE 7 — INGEST PIPELINE
+
+Goal: Connect all modules.
+
+Pipeline steps:
+
+scan() -> hash() -> check database -> metadata extraction -> compute
+destination -> move file -> insert database record
+
+Add parallel execution:
+
+ThreadPoolExecutor.
+
+Result: Complete ingest workflow.
+
+------------------------------------------------------------------------
+
+PHASE 8 — PROGRESS VISIBILITY
+
+Add progress bars using tqdm.
+
+Example output:
+
+Processing media: 34%
+
+Display:
+
+files processed duplicates removed errors encountered
+
+------------------------------------------------------------------------
+
+PHASE 9 — PERCEPTUAL DUPLICATE DETECTION
+
+Optional advanced feature.
+
+Library: imagehash
+
+Algorithm:
+
+compute perceptual hash compare hamming distance
+
+Threshold:
+
+distance <= 5 → probable duplicate
+
+Store perceptual hashes in database.
+
+------------------------------------------------------------------------
+
+PHASE 10 — ARCHIVE VERIFICATION
+
+Add verification command.
+
+Example:
+
+media-ingest verify archive/
+
+Procedure:
+
+for each stored file: recompute hash compare with database
+
+Detects:
+
+bit rot disk corruption accidental modification
+
+------------------------------------------------------------------------
+
+PHASE 11 — CRASH SAFE RESUME
+
+Add processed_files table.
+
+processed_files( path TEXT PRIMARY KEY )
+
+Before processing:
+
+check if path exists in table.
+
+After success:
+
+insert record.
+
+Result: Interrupted ingest jobs resume safely.
+
+------------------------------------------------------------------------
+
+PHASE 12 — PERFORMANCE OPTIMIZATION
+
+Add improvements:
+
+hash caching batched database commits worker pool tuning
+
+Goals:
+
+support millions of files maintain constant memory usage
+
+------------------------------------------------------------------------
+
+PHASE 13 — FUTURE IMPROVEMENTS
+
+Potential upgrades:
+
+Rust scanning backend GPU hashing watch mode for ingest folder cloud
+backup integration advanced metadata indexing
+
+------------------------------------------------------------------------
+
+END OF IMPLEMENTATION PLAN

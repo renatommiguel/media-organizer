@@ -1,0 +1,64 @@
+SOFTWARE DESIGN DOCUMENT (SDD) MEDIA INGEST TOOL
+
+1.  System Purpose The system ingests unstructured media files and
+    converts them into a structured, searchable, deduplicated archive.
+
+2.  Architectural Style The system uses a modular pipeline architecture.
+
+Modules: CLI Scanner Metadata Engine Hashing Engine Duplicate Detector
+Organizer Database Layer Verification Engine
+
+3.  Component Descriptions
+
+CLI Responsible for user interaction and command parsing.
+
+Scanner Streams filesystem entries using generators.
+
+Metadata Engine Extracts timestamps using ExifTool.
+
+Hashing Engine Computes BLAKE3 content hashes.
+
+Duplicate Detector Compares hashes against stored records.
+
+Organizer Determines archive storage location.
+
+Database Layer SQLite index storing file hashes and metadata.
+
+Verification Engine Periodically verifies archive integrity.
+
+4.  Data Model
+
+TABLE files: hash TEXT PRIMARY KEY path TEXT size INTEGER
+
+TABLE metadata: path TEXT timestamp INTEGER camera TEXT gps_lat REAL
+gps_lon REAL
+
+5.  Pipeline Flow
+
+scan() -> hash() -> metadata() -> duplicate_check() -> organize() ->
+database_insert()
+
+6.  Scalability Strategy
+
+Key techniques: - generator-based scanning - bounded worker pools -
+streaming processing - batched database writes
+
+Memory usage remains constant regardless of archive size.
+
+7.  Performance Considerations
+
+Primary bottlenecks: - disk I/O - metadata extraction - hashing
+
+Optimizations: - BLAKE3 hashing - parallel workers - hash caching -
+streaming architecture
+
+8.  Failure Handling
+
+Crash-safe resume supported by database records.
+
+Processed files are tracked and skipped if re-run.
+
+9.  Future Enhancements
+
+Possible improvements: - perceptual duplicate detection - GPU hashing -
+Rust scanning backend - archive replication - metadata indexing

@@ -1,0 +1,229 @@
+# Cursor Rules for Media Ingest Tool
+
+## Architecture Rules
+
+This project must follow the modular architecture defined in:
+
+* media_ingest_spec.txt
+* media_ingest_sdd.txt
+* implementation_plan.txt
+
+The system must remain modular.
+
+Do NOT collapse modules into a single file.
+
+---
+
+## Project Structure
+
+The project structure must remain:
+
+media_ingest/
+cli.py
+pipeline.py
+scanner.py
+hashing.py
+metadata.py
+organizer.py
+database.py
+utils.py
+
+Responsibilities:
+
+cli.py
+Command line interface.
+
+pipeline.py
+Orchestrates ingest pipeline.
+
+scanner.py
+Filesystem scanning.
+
+hashing.py
+Content hashing.
+
+metadata.py
+Metadata extraction.
+
+database.py
+SQLite access layer.
+
+organizer.py
+Archive path creation.
+
+utils.py
+Shared helpers.
+
+---
+
+## Module Boundaries
+
+Each module must have a single responsibility.
+
+Allowed dependencies:
+
+pipeline → scanner
+pipeline → hashing
+pipeline → metadata
+pipeline → organizer
+pipeline → database
+
+scanner must NOT depend on other modules.
+
+database must NOT depend on pipeline.
+
+metadata must remain independent.
+
+---
+
+## File Processing Rules
+
+The ingest pipeline must:
+
+* stream files using generators
+* never load the entire file list into memory
+* support extremely large archives
+
+Correct pattern:
+
+for path in scan():
+process(path)
+
+Incorrect pattern:
+
+files = list(scan())
+
+---
+
+## Duplicate Detection
+
+Duplicates are detected using:
+
+BLAKE3 content hashing.
+
+Hashing must read files in chunks to support large video files.
+
+Never load entire files into memory.
+
+---
+
+## Metadata Extraction
+
+Primary metadata extraction must use:
+
+ExifTool.
+
+Fallback method:
+
+filesystem modification time.
+
+Metadata normalization must produce:
+
+Python datetime objects.
+
+---
+
+## Archive Structure
+
+Files must be organized as:
+
+archive/
+YYYY/
+MM/
+DD/
+
+Directories must be created automatically.
+
+Filename conflicts must be resolved by incrementing suffix numbers.
+
+Example:
+
+photo.jpg
+photo_1.jpg
+photo_2.jpg
+
+---
+
+## Database Rules
+
+SQLite database must store:
+
+files(
+hash TEXT PRIMARY KEY,
+path TEXT,
+size INTEGER
+)
+
+Database code must exist only inside database.py.
+
+Other modules must never execute raw SQL.
+
+---
+
+## Performance Rules
+
+The system must scale to millions of files.
+
+Requirements:
+
+* streaming pipeline
+* parallel worker pool
+* chunked hashing
+* minimal memory usage
+
+Avoid unnecessary disk access.
+
+---
+
+## Code Quality
+
+Follow these conventions:
+
+* Python 3.11+
+* type hints for public functions
+* descriptive variable names
+* small functions
+* docstrings for modules
+
+Prefer readability over cleverness.
+
+---
+
+## Error Handling
+
+The pipeline must:
+
+* log errors
+* continue processing remaining files
+* never crash entire ingest job due to a single file.
+
+---
+
+## AI Generation Rules
+
+When generating code:
+
+* follow the architecture strictly
+* update only relevant modules
+* avoid duplicating logic
+* avoid creating new modules unless necessary
+
+Always maintain modular separation.
+
+---
+
+## Testing
+
+When adding new functionality:
+
+generate tests in:
+
+tests/
+
+Use pytest.
+
+---
+
+## Goal
+
+Maintain a scalable, maintainable media ingest system suitable for very large archives.

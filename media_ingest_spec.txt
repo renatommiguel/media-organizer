@@ -1,0 +1,90 @@
+MEDIA INGEST TOOL SPECIFICATION
+
+Overview The Media Ingest Tool is a command-line utility designed to
+ingest photos and videos from an unstructured ingest folder and organize
+them into a structured archive based on metadata.
+
+Primary goals: - Organize media files using metadata timestamps - Detect
+and remove duplicates - Maintain a persistent archive index - Support
+many camera formats including RAW files - Operate efficiently on very
+large datasets - Provide long-term archive verification
+
+Core Workflow scan filesystem -> extract metadata -> compute hash ->
+duplicate detection -> organize into archive -> store metadata in
+database
+
+Key Features
+
+Metadata-Based Organization Media files are organized using the capture
+timestamp extracted from metadata.
+
+Priority order: 1. DateTimeOriginal 2. CreateDate 3. MediaCreateDate 4.
+File modification time
+
+Archive structure: archive/ YYYY/ MM/ DD/ file.ext
+
+Duplicate Detection
+
+Exact duplicates: Detected using content hashing with BLAKE3.
+
+Steps: 1. compute file hash 2. check database 3. delete duplicate if
+exists
+
+Perceptual duplicates (optional): Uses perceptual hashing (pHash) to
+detect visually identical images.
+
+RAW Camera Format Support
+
+Supported image formats: jpg, jpeg, png, heic
+
+RAW formats: cr2, cr3, nef, arw, dng, raf, rw2, orf
+
+Video formats: mp4, mov, avi, mkv, m4v
+
+Persistent Archive Database
+
+SQLite database structure: files( hash TEXT PRIMARY KEY, path TEXT, size
+INTEGER )
+
+Benefits: - cross-ingest duplicate detection - quick lookup - archive
+integrity verification
+
+Archive Integrity Verification
+
+Verification process: for each file in database: compute hash compare
+with stored hash
+
+Detects corruption caused by: - disk errors - bit rot - accidental
+modification
+
+Streaming File Processing
+
+The pipeline uses generator-based scanning to avoid loading all files
+into memory.
+
+Example: for file in scan(): process(file)
+
+Benefits: - constant memory usage - scalable to millions of files
+
+Parallel Processing
+
+Worker pool processes files concurrently.
+
+scanner -> worker pool -> processor
+
+Hash Caching
+
+Store: - file size - modification time - computed hash
+
+If metadata unchanged: reuse stored hash
+
+CLI Interface
+
+Example: media-ingest ingest/ archive/
+
+Options: –dry-run –workers N –resume –verify
+
+Project Structure
+
+media_ingest/ cli.py pipeline.py scanner.py metadata.py hashing.py
+database.py organizer.py utils.py

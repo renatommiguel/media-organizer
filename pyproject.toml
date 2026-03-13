@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "media-ingest"
+version = "0.1.0"
+description = "Ingest and organize media files into a structured archive"
+requires-python = ">=3.11"
+dependencies = [
+    "blake3>=0.4.1",
+    "Pillow>=10.0.0",
+    "tqdm>=4.66.0",
+    "imagehash>=4.3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+media-organizer = "media_ingest.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
