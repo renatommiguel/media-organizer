@@ -8,3 +8,4 @@ build/
 .ruff_cache/
 uv.lock
 *.spec
+tests\__pycache__
