@@ -126,6 +126,7 @@ dependencies = [
     { name = "blake3" },
     { name = "imagehash" },
     { name = "pillow" },
+    { name = "reverse-geocoder" },
     { name = "tqdm" },
 ]
 
@@ -140,6 +141,7 @@ requires-dist = [
     { name = "imagehash", specifier = ">=4.3.1" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
+    { name = "reverse-geocoder", specifier = ">=1.5" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
 provides-extras = ["dev"]
@@ -411,6 +413,16 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/1a/89f5f4ebcb9d34d9b7b2ac0a868c8b6d8c78d699a36f54407a060cea0566/pywavelets-1.9.0-cp314-cp314t-win32.whl", hash = "sha256:097f157e07858a1eb370e0d9c1bd11185acdece5cca10756d6c3c7b35b52771a", size = 4209132, upload-time = "2025-08-04T16:20:00.371Z" },
     { url = "https://files.pythonhosted.org/packages/68/d2/a8065103f5e2e613b916489e6c85af6402a1ec64f346d1429e2d32cb8d03/pywavelets-1.9.0-cp314-cp314t-win_amd64.whl", hash = "sha256:3b6ff6ba4f625d8c955f68c2c39b0a913776d406ab31ee4057f34ad4019fb33b", size = 4306793, upload-time = "2025-08-04T16:20:02.934Z" },
 ]
+
+[[package]]
+name = "reverse-geocoder"
+version = "1.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/0f/b7d5d4b36553731f11983e19e1813a1059ad0732c5162c01b3220c927d31/reverse_geocoder-1.5.1.tar.gz", hash = "sha256:2a2e781b5f69376d922b78fe8978f1350c84fce0ddb07e02c834ecf98b57c75c", size = 2246559, upload-time = "2016-09-15T16:46:46.277Z" }
 
 [[package]]
 name = "scipy"

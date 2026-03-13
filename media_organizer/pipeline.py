@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from .database import ArchiveDB
 from .hashing import file_hash, compute_perceptual_hash, hamming_distance
-from .metadata import extract_metadata
+from .metadata import extract_metadata, reverse_geocode
 from .organizer import target_path, move_file
 from .scanner import scan
 from .utils import logger
@@ -85,8 +85,12 @@ def _process_file(
         meta = extract_metadata(filepath)
         timestamp = meta["timestamp"]
 
+        # --- build filename: HH_MM_SS_City.ext ---
+        city = reverse_geocode(meta["gps_lat"], meta["gps_lon"])
+        new_name = f"{timestamp:%H_%M_%S}_{city}{filepath.suffix.lower()}"
+
         # --- destination ---
-        dest = target_path(archive_root, timestamp, filepath.name)
+        dest = target_path(archive_root, timestamp, new_name)
 
         if dry_run:
             logger.info("[dry-run] Would move %s → %s", filepath, dest)

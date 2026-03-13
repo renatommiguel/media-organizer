@@ -6,7 +6,10 @@ Fallback chain: Pillow EXIF → filesystem modification time.
 
 import json
 import os
+import re
 import subprocess
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -60,6 +63,70 @@ def extract_metadata(filepath: Path) -> dict:
         result["timestamp"] = _file_mtime(filepath)
 
     return result
+
+
+def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> str:
+    """Resolve GPS coordinates to a city name.
+
+    Fallback chain: Nominatim (online) → reverse_geocoder (offline)
+    → ``"Unknown_location"``.  The returned string is sanitized for
+    safe use in filenames.
+    """
+    if lat is None or lon is None:
+        return "Unknown_location"
+
+    city = _geocode_nominatim(lat, lon)
+    if city is None:
+        city = _geocode_offline(lat, lon)
+
+    return _sanitize_for_filename(city) if city else "Unknown_location"
+
+
+# ------------------------------------------------------------------
+# Geocoding backends
+# ------------------------------------------------------------------
+
+
+def _geocode_nominatim(lat: float, lon: float) -> Optional[str]:
+    """Online reverse geocode via OpenStreetMap Nominatim."""
+    url = (
+        f"https://nominatim.openstreetmap.org/reverse"
+        f"?lat={lat}&lon={lon}&format=json&zoom=10"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "media-organizer/0.1"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        addr = data.get("address", {})
+        return (
+            addr.get("city")
+            or addr.get("town")
+            or addr.get("village")
+            or addr.get("municipality")
+        )
+    except Exception:
+        logger.debug("Nominatim lookup failed for (%s, %s)", lat, lon)
+        return None
+
+
+def _geocode_offline(lat: float, lon: float) -> Optional[str]:
+    """Offline reverse geocode via the reverse_geocoder library."""
+    try:
+        import reverse_geocoder as rg
+
+        result = rg.search((lat, lon), verbose=False)
+        if result:
+            return result[0].get("name")
+    except Exception:
+        logger.debug("Offline geocoder failed for (%s, %s)", lat, lon)
+    return None
+
+
+def _sanitize_for_filename(name: str) -> str:
+    """Replace whitespace with underscores and strip non-alphanumeric chars."""
+    name = name.strip().replace(" ", "_")
+    name = re.sub(r"[^\w\-]", "", name, flags=re.UNICODE)
+    return name or "Unknown_location"
 
 
 # ------------------------------------------------------------------
