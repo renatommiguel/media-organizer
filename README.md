@@ -1,23 +1,74 @@
 # Media Organizer
 
-A command-line tool that ingests unstructured photos and videos and organizes them into a date-based archive using metadata timestamps.
+**Turn your chaotic camera dumps into a beautifully organized, deduplicated, GPS-tagged archive — in seconds.**
+
+Media Organizer is a blazing-fast CLI tool that scans unstructured folders of photos and videos, extracts rich metadata, eliminates duplicates, and files everything into a clean date-based archive. Files are automatically renamed with their capture time and location, so you always know *when* and *where* a photo was taken just by looking at the filename.
+
+```
+Before:                          After:
+DCIM/                            archive/
+  IMG_4021.jpg                     2024/
+  IMG_4021 (1).jpg                   03/
+  DSC00382.ARW                         15/
+  random/                                14_30_00_Paris.jpg
+    MVI_0042.mp4                         14_30_00_Paris_1.jpg   (collision resolved)
+    IMG_4021.jpg   (duplicate)           17_22_10_Lyon.mp4
+  old_trip/                          08/
+    photo.jpg                          22/
+                                         09_15_33_Unknown_location.arw
+                                         11_00_00_Barcelona.jpg
+```
+
+---
 
 ## Features
 
-- **Metadata-based organization** — files are sorted into `archive/YYYY/MM/DD/` using EXIF timestamps (DateTimeOriginal > CreateDate > MediaCreateDate > file modification time).
-- **Exact duplicate detection** — BLAKE3 content hashing identifies and removes identical files across ingests.
-- **Perceptual duplicate detection** — optional pHash-based comparison finds visually similar images (hamming distance threshold ≤ 5).
-- **Persistent archive index** — SQLite database tracks all ingested files, enabling cross-session deduplication and integrity verification.
-- **Archive verification** — recomputes hashes to detect bit rot, disk corruption, or accidental modification.
-- **Crash-safe resume** — interrupted ingests pick up where they left off.
-- **Streaming pipeline** — generator-based scanning and bounded worker pools keep memory usage constant regardless of archive size.
-- **Parallel processing** — configurable thread pool for concurrent hashing, metadata extraction, and file moves.
-- **Broad format support** — JPEG, PNG, HEIC, RAW (CR2, CR3, NEF, ARW, DNG, RAF, RW2, ORF), and video (MP4, MOV, AVI, MKV, M4V).
+### Smart file naming
+
+Every file is renamed to `HH_MM_SS_City.ext` using EXIF timestamps and GPS coordinates. The city is resolved automatically via a two-tier geocoding system:
+
+1. **Nominatim** (OpenStreetMap) — online, high accuracy
+2. **reverse_geocoder** — offline fallback, works without internet
+3. Falls back to `Unknown_location` when no GPS data is available
+
+### Duplicate detection
+
+- **Exact duplicates** — BLAKE3 content hashing (one of the fastest hash algorithms available) catches byte-identical files instantly, even across separate ingest sessions.
+- **Perceptual duplicates** (optional) — pHash-based visual comparison finds near-identical images with a configurable hamming distance threshold.
+
+### Date-based archive structure
+
+Files are organized into `archive/YYYY/MM/DD/` directories using the best available timestamp:
+
+`DateTimeOriginal > CreateDate > MediaCreateDate > file modification time`
+
+### Resilient by design
+
+- **Crash-safe resume** — every processed file is tracked in SQLite. If an ingest is interrupted, just run it again with `--resume`.
+- **Archive verification** — recompute hashes across the entire archive to detect bit rot, disk corruption, or accidental edits.
+- **Hash caching** — previously computed hashes are cached by file size + modification time, making re-runs near-instant.
+
+### Built for scale
+
+- **Streaming pipeline** — generator-based scanning never loads the full file list into memory.
+- **Parallel workers** — configurable thread pool (`--workers N`) for concurrent hashing, metadata extraction, and file moves.
+- **Batched database writes** — SQLite commits are grouped for throughput.
+- Constant memory usage whether you have 100 or 1,000,000 files.
+
+### Broad format support
+
+| Category | Formats |
+|---|---|
+| Images | JPEG, PNG, HEIC |
+| RAW | CR2, CR3, NEF, ARW, DNG, RAF, RW2, ORF |
+| Video | MP4, MOV, AVI, MKV, M4V |
+
+---
 
 ## Requirements
 
-- Python 3.11+
-- [ExifTool](https://exiftool.org/) (recommended, for best metadata extraction; falls back to Pillow and file modification time)
+- **Python 3.11+**
+- **[ExifTool](https://exiftool.org/)** (recommended) — provides the richest metadata extraction including GPS. Without it, the tool falls back to Pillow EXIF reading and file modification time.
 
 ## Installation
 
@@ -31,6 +82,8 @@ Or with pip:
 pip install -r requirements.txt
 ```
 
+---
+
 ## Usage
 
 ### Ingest media
@@ -39,7 +92,7 @@ pip install -r requirements.txt
 uv run media-organizer <source> <archive>
 ```
 
-This scans `<source>` for media files, extracts timestamps, removes duplicates, and moves files into `<archive>/YYYY/MM/DD/`.
+Scans `<source>` recursively for media files, deduplicates, renames with time + location, and moves them into `<archive>/YYYY/MM/DD/`.
 
 ### Options
 
@@ -57,49 +110,64 @@ This scans `<source>` for media files, extracts timestamps, removes duplicates, 
 # Basic ingest
 uv run media-organizer ~/Photos/Camera ~/Photos/Archive
 
-# Preview without moving anything
+# See what would happen first
 uv run media-organizer ~/Photos/Camera ~/Photos/Archive --dry-run
 
-# Fast ingest with 8 workers
+# Max speed with 8 workers
 uv run media-organizer ~/Photos/Camera ~/Photos/Archive --workers 8
 
-# Resume an interrupted ingest
+# Pick up where you left off after a crash
 uv run media-organizer ~/Photos/Camera ~/Photos/Archive --resume
 
-# Detect visually similar images too
+# Catch near-identical photos too
 uv run media-organizer ~/Photos/Camera ~/Photos/Archive --perceptual
 
-# Verify archive integrity (detect corruption)
+# Check your archive for corruption
 uv run media-organizer ~/Photos/Archive --verify
 ```
 
-## Archive structure
+### Live progress
+
+The ingest shows real-time stats as it works:
 
 ```
-archive/
-  2023/
-    07/
-      14/
-        photo.jpg
-        photo_1.jpg    # filename collision resolved automatically
-        video.mp4
-    08/
-      02/
-        IMG_1234.cr2
+Processing media: 142file [00:08, 17.3file/s, processed=128, duplicates=12, errors=2]
 ```
+
+---
+
+## How it works
+
+```
+scan source/        Recursively find all media files (generator-based, constant memory)
+       |
+   file_hash()      BLAKE3 content hash, read in 1 MB chunks
+       |
+   db.exists()      Check SQLite index for exact duplicates
+       |
+extract_metadata()  ExifTool -> Pillow -> file mtime fallback chain
+       |
+reverse_geocode()   Nominatim (online) -> reverse_geocoder (offline) -> Unknown_location
+       |
+  target_path()     Build archive/YYYY/MM/DD/HH_MM_SS_City.ext with collision handling
+       |
+   move_file()      Move to archive, record in database
+```
+
+---
 
 ## Project structure
 
 ```
 media_organizer/
-  cli.py          # Command-line interface
-  pipeline.py     # Ingest orchestration and verification
-  scanner.py      # Generator-based filesystem scanning
-  hashing.py      # BLAKE3 content hashing and perceptual hashing
-  metadata.py     # ExifTool / Pillow / mtime metadata extraction
-  organizer.py    # Date-based archive path computation
-  database.py     # Thread-safe SQLite access layer
-  utils.py        # Shared constants and logger
+  cli.py          Command-line interface
+  pipeline.py     Ingest orchestration and verification
+  scanner.py      Generator-based filesystem scanning
+  hashing.py      BLAKE3 content hashing and perceptual hashing
+  metadata.py     ExifTool / Pillow / mtime extraction + GPS reverse geocoding
+  organizer.py    Date-based archive path computation
+  database.py     Thread-safe SQLite access layer
+  utils.py        Shared constants and logger
 ```
 
 ## Running tests
